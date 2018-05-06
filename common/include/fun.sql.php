@@ -205,6 +205,53 @@ function SQLbuscaSimple($texto){
 
 #
 # Buscador general según string
+# parent should ideally be a meta-term but this is not enforced
+#
+function SQLbuscaSimpleDown($texto, $parent_id){
+	GLOBAL $DBCFG;
+	$texto=trim($texto);
+	$parent_id = is_numeric($parent_id) ? $parent_id : 0;
+
+	$codUP=UP_acronimo;
+
+	//Control de estados
+	$where=(!$_SESSION[$_SESSION["CFGURL"]]["ssuser_id"]) ? " and tema.estado_id='13' " : "";
+
+	//Check is include or not meta terms
+	$where.=(CFG_SEARCH_METATERM==0) ? " and tema.isMetaTerm=0 " : "";
+
+	$sql=SQLo("select","if(temasPreferidos.tema_id is not null,relaciones.id_menor,tema.tema_id) id_definitivo,
+	tema.tema_id,
+	tema.tema,
+	tema.estado_id,
+	relaciones.t_relacion,
+	temasPreferidos.tema as termino_preferido,
+	tema.isMetaTerm,
+	if(?=tema.tema,1,0) as rank,
+	i.indice,
+	v.value_id as rel_rel_id,
+	v.value as rr_value,
+	v.value_code as rr_code
+	from $DBCFG[DBprefix]tema as tema
+	left join $DBCFG[DBprefix]tabla_rel as relaciones on relaciones.id_mayor=tema.tema_id
+	left join $DBCFG[DBprefix]tema as temasPreferidos on temasPreferidos.tema_id=relaciones.id_menor
+	and tema.tema_id=relaciones.id_mayor
+	and relaciones.t_relacion in (4,5,6,7)
+	left join $DBCFG[DBprefix]indice i on i.tema_id=tema.tema_id
+	left join $DBCFG[DBprefix]values v on v.value_id = relaciones.rel_rel_id
+	left join $DBCFG[DBprefix]indice indice_pref on indice_pref.tema_id=COALESCE(temasPreferidos.tema_id, tema.tema_id)
+	where
+	tema.tema like ?
+	$where
+	AND indice_pref.indice LIKE CONCAT('%|', ?, '|%')
+	group by id_definitivo
+	order by rank desc,lower(tema.tema)",array($texto, "%$texto%", $parent_id));
+
+	return $sql;
+};
+
+#
+# Buscador general según string
 #
 function SQLsearchInNotes($texto,$params=array()){
 	GLOBAL $DBCFG;

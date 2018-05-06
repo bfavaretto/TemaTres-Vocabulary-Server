@@ -464,6 +464,28 @@ class XMLvocabularyServices {
 		return $result;
 	}
 
+	// Devuelve lista de términos para una busqueda
+	// array(tema_id,string,no_term_string,relation_type_id,array(index),order)
+	function fetchTermsBySearchDown($string, $parent_id){
+
+
+		$sql=SQLbuscaSimpleDown($string, $parent_id);
+
+		while($array=$sql->FetchRow()){
+			$i=++$i;
+			$arrayIndex=explode('|',$array[indice]);
+			$result["result"][$array[id_definitivo]]= array(
+				"term_id"=>$array[id_definitivo],
+				"string"=>($array[termino_preferido]) ? $array[termino_preferido] : $array[tema],
+				"isMetaTerm"=>$array["isMetaTerm"],
+				"no_term_string"=>($array[termino_preferido]) ? $array[tema] : FALSE ,
+				"index"=>$array[indice],
+				"order" => $i
+			);
+		};
+		return $result;
+	}
+
 
 	// Devuelve lista de términos para una busqueda en notas
 	// array(tema_id,string,no_term_string,relation_type_id,array(index),order)
@@ -667,6 +689,12 @@ class XMLvocabularyServices {
 		$array['search']['arg'] = 'search expresion (string)';
 		$array['search']['example'] = $_SESSION["CFGURL"].'services.php?task=search&arg=peace';
 
+		$array['searchDown']['action'] = 'Search and retrieve terms';
+		$array['searchDown']['task'] = 'search';
+		$array['searchDown']['arg'] = 'search expresion (string)';
+		$array['searchDown']['arg1'] = 'ancestor/branch id to restrict to (int)';
+		$array['searchDown']['example'] = $_SESSION["CFGURL"].'services.php?task=search&arg=peace&arg1=1';
+
 		$array['fetch']['action'] = 'Search and retrieve terms using exact matching';
 		$array['fetch']['task'] = 'fetch';
 		$array['fetch']['arg'] = 'search expresion (string)';
@@ -793,7 +821,15 @@ class XMLvocabularyServices {
 function fetchVocabularyService($task,$arg,$output="xml")
 {
 
-	$evalParam=evalServiceParam($task,$arg);
+	if(is_array($arg)) {
+		$arg0 = $arg[0];
+		$arg1 = $arg[1];
+	} else {
+		$arg0 = $arg;
+		$arg1 = null;
+	}
+	
+	$evalParam=evalServiceParam($task,$arg0);
 
 	//Verificar servicio habilitado
 	if((CFG_SIMPLE_WEB_SERVICE !== "1") || (!$task)){
@@ -811,7 +847,7 @@ function fetchVocabularyService($task,$arg,$output="xml")
 	}else{
 
 		$task=$evalParam["task"];
-		$arg=$evalParam["arg"];
+		$arg= $evalParam["arg"];
 
 		$service=new XMLvocabularyServices();
 		switch($task){
@@ -823,6 +859,12 @@ function fetchVocabularyService($task,$arg,$output="xml")
 			//array
 			case 'search':
 			$response = $service-> fetchTermsBySearch($arg);
+			break;
+
+			//array
+			case 'searchDown':
+			$arg1 = is_numeric($arg1) ? $arg1 : 0;
+			$response = $service-> fetchTermsBySearchDown($arg, $arg1);
 			break;
 
 			//array
@@ -1024,133 +1066,138 @@ function evalServiceParam($task,$arg)
 {
 
 	$array_tasks=array("fetch"=>"string",
-	"search"=>"string",
-	"searchNotes"=>"string",
-	"suggest"=>"string",
-	"suggestDetails"=>"string",
-	"fetchSimilar"=>"string",
-	"fetchCode"=>"string",
-	"fetchRelated"=>"int",
-	"fetchAlt"=>"int",
-	"fetchDown"=>"int",
-	"fetchUp"=>"int",
-	"fetchTermFull"=>"int",
-	"fetchTerm"=>"int",
-	"fetchDirectTerms"=>"int",
-	"fetchNotes"=>"int",
-	"fetchURI"=>"int",
-	"fetchTopTerms"=>"NULL",
-	"fetchLast"=>"NULL",
-	"fetchVocabularyData"=>"NULL",
-	"fetchTerms"=>"array_int",
-	"fetchTargetTerms"=>"int",
-	"fetchSourceTerms"=>"string",
-	"fetchRelatedTerms"=>"array_int",
-	"randomTerm"=>"string",
-	"letter"=>"string"
-);
+		"search"=>"string",
+		"searchDown"=>"string",
+		"searchNotes"=>"string",
+		"suggest"=>"string",
+		"suggestDetails"=>"string",
+		"fetchSimilar"=>"string",
+		"fetchCode"=>"string",
+		"fetchRelated"=>"int",
+		"fetchAlt"=>"int",
+		"fetchDown"=>"int",
+		"fetchUp"=>"int",
+		"fetchTermFull"=>"int",
+		"fetchTerm"=>"int",
+		"fetchDirectTerms"=>"int",
+		"fetchNotes"=>"int",
+		"fetchURI"=>"int",
+		"fetchTopTerms"=>"NULL",
+		"fetchLast"=>"NULL",
+		"fetchVocabularyData"=>"NULL",
+		"fetchTerms"=>"array_int",
+		"fetchTargetTerms"=>"int",
+		"fetchSourceTerms"=>"string",
+		"fetchRelatedTerms"=>"array_int",
+		"randomTerm"=>"string",
+		"letter"=>"string"
+	);
 
-//eval task
-if(!array_key_exists($task,$array_tasks)){
+	//eval task
+	if(!array_key_exists($task,$array_tasks)){
 
-	return array("error"=>"invalid task param");
-}
+		return array("error"=>"invalid task param");
+	}
 
-//eval arg
-$arg=evalArg($array_tasks[$task],$arg);
+	//eval arg
+	$arg=evalArg($array_tasks[$task],$arg);
 
-switch($task){
-	case 'fetch':
-	$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+	switch($task){
+		case 'fetch':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'search':
-	$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'search':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'suggest':
-	$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'searchDown':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'suggestDetails':
-	$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'suggest':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'similarTerm':
-	$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'suggestDetails':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchCode':
-	$response = (is_string($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'similarTerm':
+		$response = ((is_string($arg))&&(strlen($arg)>=CFG_MIN_SEARCH_SIZE)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchRelated':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchCode':
+		$response = (is_string($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchAlt':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchRelated':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchDown':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchAlt':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
+
+		case 'fetchDown':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
 
-	case 'fetchUp':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchUp':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchTermFull':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchTermFull':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchTerm':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchTerm':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchDirectTerms':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchDirectTerms':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchNotes':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchNotes':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchURI':
-	$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchURI':
+		$response = (is_numeric($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchTopTerms':
-	$response = array("task"=>$task,"arg"=>$arg);
-	break;
+		case 'fetchTopTerms':
+		$response = array("task"=>$task,"arg"=>$arg);
+		break;
 
-	case 'fetchLast':
-	$response = array("task"=>$task,"arg"=>$arg);
-	break;
+		case 'fetchLast':
+		$response = array("task"=>$task,"arg"=>$arg);
+		break;
 
-	case 'randomTerm':
-	$response = (is_string($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'randomTerm':
+		$response = (is_string($arg)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchTerms':
-	$response = (is_array(explode(',',$arg))) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchTerms':
+		$response = (is_array(explode(',',$arg))) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'fetchRelatedTerms':
-	$response = (is_array(explode(',',$arg))) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'fetchRelatedTerms':
+		$response = (is_array(explode(',',$arg))) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	case 'letter':
-	$response = ((is_string($arg))&&(strlen($arg)==1)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
-	break;
+		case 'letter':
+		$response = ((is_string($arg))&&(strlen($arg)==1)) ? array("task"=>$task,"arg"=>$arg) : array("error"=>"invalid input");
+		break;
 
-	default:
-	$response =  array("task"=>$task,"arg"=>$arg) ;
-	break;
-}
+		default:
+		$response =  array("task"=>$task,"arg"=>$arg) ;
+		break;
+	}
 
-return $response;
+	return $response;
 }
 
 

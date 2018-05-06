@@ -29,13 +29,13 @@ $DBCFG["DBdriver"] ="";
 $DBCFG["Server"]      = "localhost";
 
 //  Nombre de la base de datos Database name
-$DBCFG["DBName"]     = "tematres";
+$DBCFG["DBName"]     = "trinta_vc";
 
 //  Nombre de usuario - login
 $DBCFG["DBLogin"]    = "root";
 
 //  Passwords
-$DBCFG["DBPass"] = "pass";
+$DBCFG["DBPass"] = "";
 
 //  Prefijo para tablas # Prefix for tables
 $DBCFG["DBprefix"] = "lc_";
