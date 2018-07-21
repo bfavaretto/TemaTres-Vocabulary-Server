@@ -118,8 +118,8 @@ $CFG["IMP_TAG_TABULATOR"]  ='===';
 	);
  */
 $CFG["HEADER_EXTRA"] =array(
-	"LINK_IMG"=>'',
-	"LINK_URL"=>'',
+	"LINK_IMG"=>'http://localhost/icaa/vocabs/icaa-logo-graphic.png',
+	"LINK_URL"=>'http://localhost/icaa/vocabs/',
 	"LINK_TITLE"=>''
 );
 
